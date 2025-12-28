@@ -9,6 +9,9 @@ import {
   Query,
   UseGuards,
   Res,
+  DefaultValuePipe,
+  ParseIntPipe,
+  Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -16,10 +19,13 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as protobuf from 'protobufjs';
+import { join } from 'path';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
+  private readonly logger = new Logger(UsersController.name);
+
   constructor(private usersService: UsersService) {}
 
   @Post()
@@ -28,8 +34,11 @@ export class UsersController {
   }
 
   @Get()
-  async findAll(@Query('page') page = '1', @Query('limit') limit = '10') {
-    return this.usersService.findAll(Number(page), Number(limit));
+  async findAll(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    return this.usersService.findAll(page, limit);
   }
 
   @Get('stats/last-7-days')
@@ -41,24 +50,7 @@ export class UsersController {
   async exportProtobuf(@Res() res: Response) {
     try {
       const users = await this.usersService.exportProtobuf();
-      
-      const protoDefinition = `
-        syntax = "proto3";
-        message User {
-          string id = 1;
-          string email = 2;
-          string role = 3;
-          string status = 4;
-          string emailHash = 5;
-          string signature = 6;
-          string createdAt = 7;
-        }
-        message UserList {
-          repeated User users = 1;
-        }
-      `;
-
-      const root = protobuf.parse(protoDefinition).root;
+      const root = await protobuf.load(join(__dirname, 'user.proto'));
       const UserList = root.lookupType('UserList');
 
       const payload = {
@@ -80,7 +72,7 @@ export class UsersController {
       res.setHeader('Content-Disposition', 'attachment; filename=users.bin');
       res.send(Buffer.from(buffer));
     } catch (error) {
-      console.error('Export error:', error);
+      this.logger.error('Export error:', error);
       res.status(500).json({ error: 'Export failed' });
     }
   }

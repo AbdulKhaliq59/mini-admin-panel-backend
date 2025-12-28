@@ -40,31 +40,28 @@ export class UsersRepository {
   }
 
   async getUserStatsLast7Days() {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
     const users = await this.prisma.user.findMany({
-      where: { createdAt: { gte: sevenDaysAgo } },
       select: { createdAt: true },
     });
 
     const stats = new Map<string, number>();
-    for (let i = 0; i < 7; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+    const today = new Date();
+    
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
       stats.set(dateStr, 0);
     }
 
     users.forEach((user) => {
       const dateStr = user.createdAt.toISOString().split('T')[0];
       if (stats.has(dateStr)) {
-        stats.set(dateStr, stats.get(dateStr)! + 1);
+        stats.set(dateStr, (stats.get(dateStr) || 0) + 1);
       }
     });
 
     return Array.from(stats.entries())
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .map(([date, count]) => ({ date, count }));
   }
 }

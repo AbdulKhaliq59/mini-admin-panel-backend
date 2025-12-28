@@ -1,6 +1,19 @@
+import { IsEmail, IsIn, IsNotEmpty, IsString } from 'class-validator';
+
 export class CreateUserDto {
+  @IsEmail()
+  @IsNotEmpty()
   email: string;
+
+  @IsString()
+  @IsNotEmpty()
   fullName: string;
-  role: 'admin' | 'user' | 'moderator';
-  status: 'active' | 'inactive' | 'suspended';
+
+  @IsIn(['admin', 'user'])
+  @IsNotEmpty()
+  role: 'admin' | 'user';
+
+  @IsIn(['active', 'inactive'])
+  @IsNotEmpty()
+  status: 'active' | 'inactive';
 }

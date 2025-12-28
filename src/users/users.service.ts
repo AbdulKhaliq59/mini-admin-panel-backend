@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { createHash, generateKeyPairSync, sign, verify } from 'crypto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { createHash, sign, verify } from 'crypto';
 import { UsersRepository } from './users.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -9,12 +10,19 @@ export class UsersService {
   private privateKey: string;
   private publicKey: string;
 
-  constructor(private repository: UsersRepository) {
-    const { privateKey, publicKey } = generateKeyPairSync('rsa', {
-      modulusLength: 2048,
-      publicKeyEncoding: { type: 'spki', format: 'pem' },
-      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-    });
+  constructor(
+    private repository: UsersRepository,
+    private readonly configService: ConfigService,
+  ) {
+    const privateKey = this.configService.get<string>('USER_DATA_PRIVATE_KEY');
+    const publicKey = this.configService.get<string>('USER_DATA_PUBLIC_KEY');
+
+    if (!privateKey || !publicKey) {
+      throw new Error(
+        'USER_DATA_PRIVATE_KEY and USER_DATA_PUBLIC_KEY must be set in environment variables.',
+      );
+    }
+
     this.privateKey = privateKey;
     this.publicKey = publicKey;
   }
@@ -45,12 +53,6 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
-    if (!dto.email || !dto.fullName) {
-      throw new BadRequestException('Email and full name are required');
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dto.email)) {
-      throw new BadRequestException('Invalid email format');
-    }
     const emailHash = this.hashEmail(dto.email);
     const signature = this.signHash(emailHash);
     return this.repository.create({ ...dto, emailHash, signature });
