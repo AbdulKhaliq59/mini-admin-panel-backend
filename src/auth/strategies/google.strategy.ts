@@ -1,9 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, VerifyCallback } from 'passport-google-oauth20';
+import { Strategy, VerifyCallback, Profile } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
-import { UserDto } from '../dto/user.dto';
-import { randomUUID } from 'crypto';
+import { GoogleUser } from '../interfaces/google-user.interface';
+
+function extractFullName(profile: Profile): string {
+    const givenName = profile.name?.givenName || '';
+    const familyName = profile.name?.familyName || '';
+    const fullName = `${givenName} ${familyName}`.trim();
+    return fullName || profile.displayName || '';
+}
+
+function extractGoogleUser(profile: Profile): GoogleUser {
+    return {
+        googleId: profile.id,
+        email: profile.emails?.[0]?.value || '',
+        fullName: extractFullName(profile),
+        picture: profile.photos?.[0]?.value,
+    };
+}
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -29,16 +44,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     async validate(
         accessToken: string,
         refreshToken: string,
-        profile: any,
+        profile: Profile,
         done: VerifyCallback,
-    ) {
-        const email = profile.emails && profile.emails[0] && profile.emails[0].value;
-        const user: UserDto = {
-            id: profile.id ?? randomUUID(),
-            email: email ?? '',
-            displayName: profile.displayName,
-            picture: profile.photos && profile.photos[0] && profile.photos[0].value,
-        };
-        return done(null, user);
+    ): Promise<void> {
+        const user = extractGoogleUser(profile);
+        done(null, user);
     }
 }
