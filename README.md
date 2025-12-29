@@ -113,18 +113,6 @@ npx prisma db push --force-reset
 npx prisma generate
 ```
 
-## Testing
-
-```bash
-# Run unit tests
-pnpm run test
-
-# Run e2e tests
-pnpm run test:e2e
-
-# Generate test coverage
-pnpm run test:cov
-```
 
 ## Project Structure
 
